@@ -650,9 +650,10 @@ NBodyHOTNode_t* getBranchNodes_NB(NBodyHOT_t hot) {
 		return NULL;
 	}
 
-	int world_rank;
+	int world_rank = 0;
+#if NBODY_MPI
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-
+#endif
 	NBodyHOTNode_t* root = getHOTNode_NB(hot, ROOT_KEY);
 	NBodyHOTNode_t* branchList = NULL;
 

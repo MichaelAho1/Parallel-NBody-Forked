@@ -10,9 +10,10 @@ CPPCOMPILEARG = -Wno-unused-function -O3 $(INCLUDES) -std=c++11
 OGLLIBS = -lglfw -lGLEW -lGL -lGLU -lrt -lX11 -lXrandr -lXinerama -lXi -lXxf86vm -lXcursor
 LDARGS = -lpthread -lm
 
-SOURCES = src/NBodyHelpers.o src/NBodyInit.o src/NBodyForces.o src/NBodyKeys.o src/NBodyOctree.o src/NBodyHashedOctree.o src/NBodySerialize.o src/NBodySimulation.o src/NBodyMPISimulation.o src/NBodyMain.o
+SOURCES = src/NBodyHelpers.o src/NBodyInit.o src/NBodyForces.o src/NBodyKeys.o src/NBodyOctree.o src/NBodyHashedOctree.o src/NBodySerialize.o src/NBodySimulation.o src/NBodyMain.o
 OGL_SOURCES = ogl/shader.o ogl/NBodyRenderer.o
 PARALLEL_SOURCES = src/NBodyParallel.o parallel/ExecutorThreadPool.o parallel/FunctionExecutorThread.o
+MPI_SOURCES = src/NBodyMPISimulation.o
 
 vpath %.cpp ./
 vpath %.cpp ogl/
@@ -68,7 +69,7 @@ debug : clean makepar makedebugogl test.bin
 serial.bin : $(SOURCES) 
 	$(CPPC) -o test.bin $^ $(OGL_SOURCES) $(OGLLIBS) $(LDARGS)
 
-noviz-serial.bin : $(SOURCES) 
+noviz-serial.bin : $(SOURCES)  
 	$(CPPC) -o test.bin $^ $(LDARGS)
 
 noviz-test.bin: $(SOURCES)
@@ -77,10 +78,10 @@ noviz-test.bin: $(SOURCES)
 test.bin : $(SOURCES)
 	$(CPPC) -o $@ $^ $(OGL_SOURCES) $(PARALLEL_SOURCES) $(OGLLIBS) $(LDARGS)
 
-mpi-test.bin : $(SOURCES)
+mpi-test.bin : $(SOURCES) $(MPI_SOURCES)
 	$(MPIPPC) -o $@ $^ $(OGL_SOURCES) $(OGLLIBS) $(LDARGS)
 
-mpi-noviz-test.bin : $(SOURCES)
+mpi-noviz-test.bin : $(SOURCES) $(MPI_SOURCES)
 	$(MPIPPC) -o $@ $^ $(LDARGS)
 
 makepar : src/NBodyParallel.o 
