@@ -68,3 +68,19 @@ Two technical reports are included in /doc.
 One for the shared-memory version and one for the distributed-memory version.
 The latter is more descriptive and the writing is mostly agnostic to a distributed or shared-memory
 system. The reports describe the problem, the background, the math, and implementation details.
+
+## Compiling and Running on the JMU Cluster
+
+Since the JMU Cluster does not support OpenGL, you need to
+compile the simulation without visuals. You can make serial-noviz, parallel-noviz, and mpi_noviz for the respective simulations. To make mpi-noviz, you must first load mpi with
+"module load mpi/openmpi-x86_64". Making mpi_noviz will create
+a binary called mpi-noviz-test.bin. Making parallel-noviz creates test.bin. Making serial-noviz creates test.bin. These binaries take six arguments. 
+While the arguments are optional, they must always be entered in the specified order, and none can be skipped. The arguments are
+1. N=10: long, the number of particles.
+2. dt=0.01: double, the time delta of the simulation.
+3. t_end=10.0: double, the end time of the simulation.
+4. seed=0: time_t, the rng seed.
+5. theta=0.5: double,
+6. algChoice=7: int, the choice of MPI algorithm. The default algorithm is most 
+sophisticated one. 
+
