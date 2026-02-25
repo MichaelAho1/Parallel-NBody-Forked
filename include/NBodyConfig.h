@@ -33,7 +33,7 @@ static const int NBODY_INIT_UNIFORM = 0;
  * The number of processors the simulation should use.
  */
 #if NBODY_PARALLEL
-static const int NBODY_NPROCS = strtol(getenv("NUM_PROCS"), NULL, 10);
+static const int NBODY_NPROCS = 16;
 #else
 static const int NBODY_NPROCS = 1;
 #endif

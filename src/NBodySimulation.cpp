@@ -20,7 +20,7 @@
 
 #if NBODY_PARALLEL
 #include "NBodyParallel.h"
-int ExecutorThreadPool::maxThreads = NBODY_NPROCS;
+int ExecutorThreadPool::maxThreads = NBODY_NPROCS; // overridden at runtime in NBodySimParallel
 #endif
 
 #include "Unix_Timer.h"
@@ -165,6 +165,9 @@ void NBodySimSerial(long N, double dt, double t_end, time_t seed, double theta) 
 
 #if NBODY_PARALLEL
 void NBodySimParallel(long N, double dt, double t_end, time_t seed, double theta) {
+    int nprocs = getNBodyNProcs_NB();
+    ExecutorThreadPool::maxThreads = nprocs;
+    printf("Number of processes: %d\n", nprocs);
 
 /**********************************
  * Init data
@@ -184,9 +187,6 @@ void NBodySimParallel(long N, double dt, double t_end, time_t seed, double theta
     for (long i = 0; i < N; ++i) {
         work[i] = N;
     }
-    long startN[NBODY_NPROCS];
-    long numN[NBODY_NPROCS];
-    computeWorkPartitions_NB(N, work, startN, numN, NBODY_NPROCS);
 
     double Epot = computeEpot_NB(N, m, r);
     double Ekin = computeEkin_NB(N, m, v);
@@ -210,37 +210,12 @@ void NBodySimParallel(long N, double dt, double t_end, time_t seed, double theta
     int updateInplace;
 
     long* idx = (long*) malloc(sizeof(long)*N);
-    //pointers and longs are same size so let's hack our temporary working space
-    const NBOctreeNode_t** tmpNodes1[NBODY_NPROCS];
-    const NBOctreeNode_t** tmpNodes2[NBODY_NPROCS];
-    for (int i = 0; i < NBODY_NPROCS; ++i) {
-        //interleaving like this actually causes better locality
-        //where thread i uses both tmpNodes1[i] and tmpNodes2[i]
-        tmpNodes1[i] = (const NBOctreeNode_t**) malloc(sizeof(NBOctreeNode_t*)*N);
-        tmpNodes2[i] = (const NBOctreeNode_t**) malloc(sizeof(NBOctreeNode_t*)*N);
-    }
 
-    NBOctree_t* trees[NBODY_NPROCS];
-    for (int i = 0; i < NBODY_NPROCS; ++i) {
-        trees[i] = NULL;
-    }
+    NBodyParallelData_t pdata;
+    err = allocParallelData_NB(N, &pdata);
+    computeWorkPartitions_NB(N, work, pdata.startN, pdata.numN, nprocs);
 
-    long* tmpLong[NBODY_NPROCS];
-    if (sizeof(long) == sizeof(NBOctreeNode_t**)) {
-        for (int i = 0; i < NBODY_NPROCS; ++i) {
-            tmpLong[i] = (long*) tmpNodes1[i];
-        }
-    } else {
-        for (int i = 0; i < NBODY_NPROCS; ++i) {
-            tmpLong[i] = (long*) malloc(sizeof(long)*N);
-        }
-    }
-
-    if (idx == NULL ||
-        tmpNodes1[NBODY_NPROCS-1] == NULL ||
-        tmpNodes2[NBODY_NPROCS-1] == NULL ||
-        tmpLong[NBODY_NPROCS-1] == NULL)
-    {
+    if (idx == NULL || err) {
         fprintf(stderr, "Could not alloc enough working space for N=%ld\n", N);
         exit(ALLOC_ERROR);
     }
@@ -270,7 +245,7 @@ void NBodySimParallel(long N, double dt, double t_end, time_t seed, double theta
         }
 #endif
         //kick, drift
-        performNBodyHalfStepAParallel_NB(dt, r, v, a, m, startN, numN);
+        performNBodyHalfStepAParallel_NB(dt, r, v, a, m, pdata.startN, pdata.numN, nprocs);
 
         //get spatial ordering, sort, and then partition.
         //not worth parallelizing key gen, only 0.002s for 100k keys.
@@ -283,14 +258,15 @@ void NBodySimParallel(long N, double dt, double t_end, time_t seed, double theta
             colors,
         #endif
             idx,
-            tmpLong
+            pdata.tmpLong,
+            nprocs
         );
-        computeWorkPartitions_NB(N, work, startN, numN, NBODY_NPROCS);
+        computeWorkPartitions_NB(N, work, pdata.startN, pdata.numN, nprocs);
 
         //build Octree
         domainSize = computeDomainSize_NB(N, r);
-        updateInplace = mapReduceBuildOctreesInPlace_NB(r, m, domainSize, trees, startN, numN);
-        octree = trees[0];
+        updateInplace = mapReduceBuildOctreesInPlace_NB(r, m, domainSize, pdata.trees, pdata.startN, pdata.numN, nprocs);
+        octree = pdata.trees[0];
 
 #if NBODY_SIM_WITH_RENDERER
         //update renderer before next kick since positions only change in step A
@@ -299,10 +275,10 @@ void NBodySimParallel(long N, double dt, double t_end, time_t seed, double theta
         }
 #endif
         //compute forces to update acceleration.
-        computeForcesOctreeBHParallel_NB(m, r, work, a, octree, tmpNodes1, tmpNodes2, theta, startN, numN);
+        computeForcesOctreeBHParallel_NB(m, r, work, a, octree, pdata.tmpNodes1, pdata.tmpNodes2, theta, pdata.startN, pdata.numN, nprocs);
 
         //kick
-        performNBodyHalfStepBParallel_NB(dt, r, v, a, m, startN, numN);
+        performNBodyHalfStepBParallel_NB(dt, r, v, a, m, pdata.startN, pdata.numN, nprocs);
     }
 
     float elapsed = 0.0;
@@ -329,15 +305,7 @@ void NBodySimParallel(long N, double dt, double t_end, time_t seed, double theta
     freeData_NB(r, v, a, m, work);
     freeSpatialKeys_NB(keys);
     free(idx);
-    for (int i = 0; i < NBODY_NPROCS; ++i) {
-        free(tmpNodes1[i]);
-        free(tmpNodes2[i]);
-    }
-    if (sizeof(long) != sizeof(NBOctreeNode_t**)) {
-        for (int i = 0; i < NBODY_NPROCS; ++i) {
-            free(tmpLong[i]);
-        }
-    }
+    freeParallelData_NB(&pdata);
 
 }
 #endif

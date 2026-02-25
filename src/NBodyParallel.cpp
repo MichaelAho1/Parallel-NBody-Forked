@@ -7,10 +7,94 @@
 #include "NBodyForces.h"
 #include "NBodyIntegrator.h"
 #include "NBodyKeys.h"
+#include "NBodyParallel.h"
 
 #include <functional>
-
+#include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+
+
+/**
+ * Read the number of parallel processes from the NUM_PROCS environment
+ * variable. Falls back to NBODY_NPROCS if the variable is unset or invalid.
+ */
+int getNBodyNProcs_NB() {
+	const char* env = getenv("NUM_PROCS");
+	if (env != NULL) {
+		int n = atoi(env);
+		if (n > 0) {
+			return n;
+		}
+		fprintf(stderr, "Warning: NUM_PROCS='%s' is not a positive integer; "
+		                "falling back to NBODY_NPROCS=%d\n", env, NBODY_NPROCS);
+	}
+	return NBODY_NPROCS;
+}
+
+
+/**
+ * Allocate all per-process working storage inside data.
+ * nprocs is determined by getNBodyNProcs_NB().
+ *
+ * @param N the number of bodies.
+ * @param data struct to populate.
+ * @return 0 on success, non-zero on allocation failure.
+ */
+int allocParallelData_NB(long N, NBodyParallelData_t* data) {
+	int nprocs = getNBodyNProcs_NB();
+	data->nprocs   = nprocs;
+	data->N        = N;
+	data->startN   = (long*)         malloc(sizeof(long)          * nprocs);
+	data->numN     = (long*)         malloc(sizeof(long)          * nprocs);
+	data->trees    = (NBOctree_t**)  malloc(sizeof(NBOctree_t*)   * nprocs);
+	data->tmpNodes1 = (const NBOctreeNode_t***) malloc(sizeof(const NBOctreeNode_t**) * nprocs);
+	data->tmpNodes2 = (const NBOctreeNode_t***) malloc(sizeof(const NBOctreeNode_t**) * nprocs);
+	data->tmpLong   = (long**)       malloc(sizeof(long*)         * nprocs);
+
+	if (!data->startN || !data->numN || !data->trees ||
+	    !data->tmpNodes1 || !data->tmpNodes2 || !data->tmpLong) {
+		return 1;
+	}
+
+	for (int i = 0; i < nprocs; ++i) {
+		data->trees[i]     = NULL;
+		data->tmpNodes1[i] = (const NBOctreeNode_t**) malloc(sizeof(NBOctreeNode_t*) * N);
+		data->tmpNodes2[i] = (const NBOctreeNode_t**) malloc(sizeof(NBOctreeNode_t*) * N);
+		data->tmpLong[i]   = (long*)                  malloc(sizeof(long)            * N);
+		if (!data->tmpNodes1[i] || !data->tmpNodes2[i] || !data->tmpLong[i]) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+
+/**
+ * Free all per-process working storage previously allocated by
+ * allocParallelData_NB.
+ */
+void freeParallelData_NB(NBodyParallelData_t* data) {
+	for (int i = 0; i < data->nprocs; ++i) {
+		free(data->tmpNodes1[i]);
+		free(data->tmpNodes2[i]);
+		free(data->tmpLong[i]);
+	}
+	free(data->startN);
+	free(data->numN);
+	free(data->trees);
+	free(data->tmpNodes1);
+	free(data->tmpNodes2);
+	free(data->tmpLong);
+	data->startN    = NULL;
+	data->numN      = NULL;
+	data->trees     = NULL;
+	data->tmpNodes1 = NULL;
+	data->tmpNodes2 = NULL;
+	data->tmpLong   = NULL;
+	data->nprocs    = 0;
+	data->N         = 0;
+}
 
 /**
  * Implements the reduce parallel programmign pattern using a thread pool
@@ -70,13 +154,14 @@ void parallelSortByIdxMap_NB(
 	float* colors,
 #endif
 	long* idx,
-	long* tmpList[NBODY_NPROCS])
+	long** tmpList,
+	int nprocs)
 {
 
 #if NBODY_SIM_WITH_RENDERER
-	if (NBODY_NPROCS >= 4) {
+	if (nprocs >= 4) {
 #else
-	if (NBODY_NPROCS >= 3) {
+	if (nprocs >= 3) {
 #endif
 		ExecutorThreadPool& threadPool = ExecutorThreadPool::getThreadPool();
 		std::function<void()> f0 = [=]() {
@@ -142,15 +227,16 @@ int mapReduceBuildOctreesInPlace_NB(
 	const double* __restrict__ m,
 	double domainSize,
 	NBOctree_t** trees,
-	long startN[NBODY_NPROCS],
-	long numN[NBODY_NPROCS])
+	long* startN,
+	long* numN,
+	int nprocs)
 {
 	ExecutorThreadPool& threadPool = ExecutorThreadPool::getThreadPool();
 
-	int retVals[NBODY_NPROCS];
+	int* retVals = (int*) malloc(sizeof(int) * nprocs);
 
 	//map
-	for (int i = 0; i < NBODY_NPROCS; ++i) {
+	for (int i = 0; i < nprocs; ++i) {
 		std::function<void()> f = std::bind(_buildOctreeInPlaceVoid_NB,
 			numN[i],
 			r + 3*startN[i],
@@ -166,11 +252,12 @@ int mapReduceBuildOctreesInPlace_NB(
 
 
 	//reduce
-	_reduceOctrees_NB(threadPool, trees, NBODY_NPROCS);
+	_reduceOctrees_NB(threadPool, trees, nprocs);
 	computeMassVals_NB(trees[0]->root);
 
-
-	return retVals[0];
+	int ret = retVals[0];
+	free(retVals);
+	return ret;
 }
 
 
@@ -199,17 +286,18 @@ void computeForcesOctreeBHParallel_NB(
 	double* work,
 	double* __restrict__ a,
 	const NBOctree_t* tree,
-	const NBOctreeNode_t** list1[NBODY_NPROCS],
-	const NBOctreeNode_t** list2[NBODY_NPROCS],
+	const NBOctreeNode_t*** list1,
+	const NBOctreeNode_t*** list2,
 	double thetaMAC,
-	long startN[NBODY_NPROCS],
-	long numN[NBODY_NPROCS])
+	long* startN,
+	long* numN,
+	int nprocs)
 {
 
 	ExecutorThreadPool& threadPool = ExecutorThreadPool::getThreadPool();
 
 	//map
-	for (int i = 0; i < NBODY_NPROCS; ++i) {
+	for (int i = 0; i < nprocs; ++i) {
 		std::function<void()> f = std::bind(computeForcesOctreeBH_NB,
 			numN[i],
 			m + startN[i],
@@ -249,14 +337,15 @@ void performNBodyHalfStepAParallel_NB(
 	double* __restrict__ v,
 	const double* __restrict__ a,
 	const double* __restrict__ m,
-	long startN[NBODY_NPROCS],
-	long numN[NBODY_NPROCS])
+	long* startN,
+	long* numN,
+	int nprocs)
 {
 
 	ExecutorThreadPool& threadPool = ExecutorThreadPool::getThreadPool();
 
 	//map
-	for (int i = 0; i < NBODY_NPROCS; ++i) {
+	for (int i = 0; i < nprocs; ++i) {
 		std::function<void()> f = std::bind(performNBodyHalfStepA,
 			numN[i],
 			dt,
@@ -293,14 +382,15 @@ void performNBodyHalfStepBParallel_NB(
 	double* __restrict__ v,
 	const double* __restrict__ a,
 	const double* __restrict__ m,
-	long startN[NBODY_NPROCS],
-	long numN[NBODY_NPROCS])
+	long* startN,
+	long* numN,
+	int nprocs)
 {
 
 	ExecutorThreadPool& threadPool = ExecutorThreadPool::getThreadPool();
 
 	//map
-	for (int i = 0; i < NBODY_NPROCS; ++i) {
+	for (int i = 0; i < nprocs; ++i) {
 		std::function<void()> f = std::bind(performNBodyHalfStepB,
 			numN[i],
 			dt,
