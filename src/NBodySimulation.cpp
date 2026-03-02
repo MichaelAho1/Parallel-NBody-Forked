@@ -24,6 +24,7 @@ int ExecutorThreadPool::maxThreads = NBODY_NPROCS; // overridden at runtime in N
 #endif
 
 #include "Unix_Timer.h"
+#include "NBodyProf.h"
 
 
 
@@ -234,6 +235,9 @@ void NBodySimParallel(long N, double dt, double t_end, time_t seed, double theta
 /**********************************
  * Start sim
  **********************************/
+#ifdef PARALLEL_PROF
+    initPhaseStats_NB();
+#endif
     double dt_out = 0.1;
     double t_out = dt_out;
     unsigned long long startTimer;
@@ -289,6 +293,10 @@ void NBodySimParallel(long N, double dt, double t_end, time_t seed, double theta
     fprintf(stderr, "Ekin: %.15g\nEpot: %.15g\n", Ekin, Epot);
     fprintf(stderr, "Eend: %.15g\n", E0);
     fprintf(stderr, "Elapsed Time: %.15g\n", elapsed);
+
+#ifdef PARALLEL_PROF
+    printPhaseStats_NB(nprocs);
+#endif
 
 
 #if NBODY_SIM_WITH_RENDERER

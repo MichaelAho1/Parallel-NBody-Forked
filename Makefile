@@ -12,7 +12,7 @@ LDARGS = -lpthread -lm
 
 SOURCES = src/NBodyHelpers.o src/NBodyInit.o src/NBodyForces.o src/NBodyKeys.o src/NBodyOctree.o src/NBodyHashedOctree.o src/NBodySerialize.o src/NBodySimulation.o src/NBodyMain.o
 OGL_SOURCES = ogl/shader.o ogl/NBodyRenderer.o
-PARALLEL_SOURCES = src/NBodyParallel.o parallel/ExecutorThreadPool.o parallel/FunctionExecutorThread.o
+PARALLEL_SOURCES = src/NBodyParallel.o src/NBodyProf.o parallel/ExecutorThreadPool.o parallel/FunctionExecutorThread.o
 MPI_SOURCES = src/NBodyMPISimulation.o
 
 vpath %.cpp ./
@@ -49,6 +49,13 @@ parallel-noviz : CPPCOMPILEARG += -DNBODY_PARALLEL=1
 parallel-noviz : CPPCOMPILEARG += -DNBODY_SIM_WITH_RENDERER=0
 parallel-noviz  : clean makepar noviz-test.bin
 
+profile-noviz : CCOMPILEARG += -DNBODY_PARALLEL=1
+profile-noviz : CCOMPILEARG += -DPARALLEL_PROF
+profile-noviz : CPPCOMPILEARG += -DNBODY_PARALLEL=1
+profile-noviz : CPPCOMPILEARG += -DNBODY_SIM_WITH_RENDERER=0
+profile-noviz : CPPCOMPILEARG += -DPARALLEL_PROF
+profile-noviz : clean makepar noviz-test.bin
+
 serial : CCOMPILEARG += -DNBODY_PARALLEL=0
 serial : CPPCOMPILEARG += -DNBODY_PARALLEL=0
 serial : CPPCOMPILEARG += -DNBODY_SIM_WITH_RENDERER=1
@@ -84,7 +91,7 @@ mpi-test.bin : $(SOURCES) $(MPI_SOURCES)
 mpi-noviz-test.bin : $(SOURCES) $(MPI_SOURCES)
 	$(MPIPPC) -o $@ $^ $(LDARGS)
 
-makepar : src/NBodyParallel.o 
+makepar : src/NBodyParallel.o src/NBodyProf.o
 	(cd parallel; make;)
 
 makeogl : 

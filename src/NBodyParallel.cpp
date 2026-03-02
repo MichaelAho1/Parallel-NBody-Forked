@@ -3,6 +3,7 @@
 #include "parallel/include/ExecutorThreadPool.hpp"
 
 #include "NBodyConfig.h"
+#include "NBodyProf.h"
 #include "NBodyOctree.h"
 #include "NBodyForces.h"
 #include "NBodyIntegrator.h"
@@ -164,32 +165,85 @@ void parallelSortByIdxMap_NB(
 	if (nprocs >= 3) {
 #endif
 		ExecutorThreadPool& threadPool = ExecutorThreadPool::getThreadPool();
-		std::function<void()> f0 = [=]() {
+
+#ifdef PARALLEL_PROF
+		float profThreadTimes[NBODY_NPROCS] = {};
+		unsigned long long profTimer;
+		float profElapsed = 0.0f;
+		_startTimerParallel(&profTimer);
+#endif
+
+		std::function<void()> f0 = [=
+#ifdef PARALLEL_PROF
+			, &profThreadTimes
+#endif
+		]() {
+#ifdef PARALLEL_PROF
+			unsigned long long t; float et = 0.0f; _startTimerParallel(&t);
+#endif
 			memcpy(tmpList[0], idx, sizeof(long)*N);
         	sortByIdxMap3N_NB(N, tmpList[0], r);
+#ifdef PARALLEL_PROF
+			_stopTimerAddElapsedParallel(&t, &et); profThreadTimes[0] = et;
+#endif
 		};
 
-		std::function<void()> f1 = [=]() {
+		std::function<void()> f1 = [=
+#ifdef PARALLEL_PROF
+			, &profThreadTimes
+#endif
+		]() {
+#ifdef PARALLEL_PROF
+			unsigned long long t; float et = 0.0f; _startTimerParallel(&t);
+#endif
 			memcpy(tmpList[1], idx, sizeof(long)*N);
         	sortByIdxMap3N_NB(N, tmpList[1], v);
+#ifdef PARALLEL_PROF
+			_stopTimerAddElapsedParallel(&t, &et); profThreadTimes[1] = et;
+#endif
 		};
-		std::function<void()> f2 = [=]() {
+		std::function<void()> f2 = [=
+#ifdef PARALLEL_PROF
+			, &profThreadTimes
+#endif
+		]() {
+#ifdef PARALLEL_PROF
+			unsigned long long t; float et = 0.0f; _startTimerParallel(&t);
+#endif
 			memcpy(tmpList[2], idx, sizeof(long)*N);
         	sortByIdxMap_NB(N, tmpList[2], work);
+#ifdef PARALLEL_PROF
+			_stopTimerAddElapsedParallel(&t, &et); profThreadTimes[2] = et;
+#endif
 		};
 		threadPool.addTaskAtIdx(f0, 0);
 		threadPool.addTaskAtIdx(f1, 1);
 		threadPool.addTaskAtIdx(f2, 2);
 
 #if NBODY_SIM_WITH_RENDERER
-		std::function<void()> f3 = [=]() {
+		std::function<void()> f3 = [=
+#ifdef PARALLEL_PROF
+			, &profThreadTimes
+#endif
+		]() {
+#ifdef PARALLEL_PROF
+			unsigned long long t; float et = 0.0f; _startTimerParallel(&t);
+#endif
 			memcpy(tmpList[3], idx, sizeof(long)*N);
         	sortByIdxMap4N_NB(N, tmpList[3], colors);
+#ifdef PARALLEL_PROF
+			_stopTimerAddElapsedParallel(&t, &et); profThreadTimes[3] = et;
+#endif
 		};
 		threadPool.addTaskAtIdx(f3, 3);
 #endif
 
 		threadPool.waitForAllThreads();
+
+#ifdef PARALLEL_PROF
+		_stopTimerAddElapsedParallel(&profTimer, &profElapsed);
+		recordPhaseStats_NB(NBPROF_DATASORT, profElapsed, profThreadTimes, nprocs);
+#endif
 
 	} else {
         memcpy(tmpList[0], idx, sizeof(long)*N);
@@ -235,8 +289,26 @@ int mapReduceBuildOctreesInPlace_NB(
 
 	int* retVals = (int*) malloc(sizeof(int) * nprocs);
 
+#ifdef PARALLEL_PROF
+	float profThreadTimes[NBODY_NPROCS] = {};
+	unsigned long long profTimer;
+	float profElapsed = 0.0f;
+	_startTimerParallel(&profTimer);
+#endif
+
 	//map
 	for (int i = 0; i < nprocs; ++i) {
+#ifdef PARALLEL_PROF
+		std::function<void()> f = [=, &profThreadTimes, &retVals]() {
+			unsigned long long t; float et = 0.0f;
+			_startTimerParallel(&t);
+			_buildOctreeInPlaceVoid_NB(numN[i],
+				r + 3*startN[i], m + startN[i],
+				domainSize, trees + i, retVals + i);
+			_stopTimerAddElapsedParallel(&t, &et);
+			profThreadTimes[i] = et;
+		};
+#else
 		std::function<void()> f = std::bind(_buildOctreeInPlaceVoid_NB,
 			numN[i],
 			r + 3*startN[i],
@@ -245,6 +317,7 @@ int mapReduceBuildOctreesInPlace_NB(
 			trees + i,
 			retVals + i
 		);
+#endif
 		threadPool.addTaskAtIdx(f, i);
 	}
 
@@ -254,6 +327,13 @@ int mapReduceBuildOctreesInPlace_NB(
 	//reduce
 	_reduceOctrees_NB(threadPool, trees, nprocs);
 	computeMassVals_NB(trees[0]->root);
+
+#ifdef PARALLEL_PROF
+	// outer timer covers map + reduce; overhead is slightly overestimated
+	// because reduce contributes to wall time but not to profThreadTimes.
+	_stopTimerAddElapsedParallel(&profTimer, &profElapsed);
+	recordPhaseStats_NB(NBPROF_TREEBUILD, profElapsed, profThreadTimes, nprocs);
+#endif
 
 	int ret = retVals[0];
 	free(retVals);
@@ -296,8 +376,27 @@ void computeForcesOctreeBHParallel_NB(
 
 	ExecutorThreadPool& threadPool = ExecutorThreadPool::getThreadPool();
 
+#ifdef PARALLEL_PROF
+	float profThreadTimes[NBODY_NPROCS] = {};
+	unsigned long long profTimer;
+	float profElapsed = 0.0f;
+	_startTimerParallel(&profTimer);
+#endif
+
 	//map
 	for (int i = 0; i < nprocs; ++i) {
+#ifdef PARALLEL_PROF
+		std::function<void()> f = [=, &profThreadTimes]() {
+			unsigned long long t; float et = 0.0f;
+			_startTimerParallel(&t);
+			computeForcesOctreeBH_NB(numN[i],
+				m + startN[i], r + 3*startN[i],
+				work + startN[i], a + 3*startN[i],
+				tree, list1[i], list2[i], thetaMAC);
+			_stopTimerAddElapsedParallel(&t, &et);
+			profThreadTimes[i] = et;
+		};
+#else
 		std::function<void()> f = std::bind(computeForcesOctreeBH_NB,
 			numN[i],
 			m + startN[i],
@@ -309,10 +408,16 @@ void computeForcesOctreeBHParallel_NB(
 			list2[i],
 			thetaMAC
 		);
+#endif
 		threadPool.addTaskAtIdx(f, i);
 	}
 
 	threadPool.waitForAllThreads(); //sync before returning;
+
+#ifdef PARALLEL_PROF
+	_stopTimerAddElapsedParallel(&profTimer, &profElapsed);
+	recordPhaseStats_NB(NBPROF_FORCES, profElapsed, profThreadTimes, nprocs);
+#endif
 
 }
 
@@ -344,8 +449,26 @@ void performNBodyHalfStepAParallel_NB(
 
 	ExecutorThreadPool& threadPool = ExecutorThreadPool::getThreadPool();
 
+#ifdef PARALLEL_PROF
+	float profThreadTimes[NBODY_NPROCS] = {};
+	unsigned long long profTimer;
+	float profElapsed = 0.0f;
+	_startTimerParallel(&profTimer);
+#endif
+
 	//map
 	for (int i = 0; i < nprocs; ++i) {
+#ifdef PARALLEL_PROF
+		std::function<void()> f = [=, &profThreadTimes]() {
+			unsigned long long t; float et = 0.0f;
+			_startTimerParallel(&t);
+			performNBodyHalfStepA(numN[i], dt,
+				r + 3*startN[i], v + 3*startN[i],
+				a + 3*startN[i], m + startN[i]);
+			_stopTimerAddElapsedParallel(&t, &et);
+			profThreadTimes[i] = et;
+		};
+#else
 		std::function<void()> f = std::bind(performNBodyHalfStepA,
 			numN[i],
 			dt,
@@ -354,10 +477,16 @@ void performNBodyHalfStepAParallel_NB(
 			a + 3*startN[i],
 			m + startN[i]
 		);
+#endif
 		threadPool.addTaskAtIdx(f, i);
 	}
 
 	threadPool.waitForAllThreads(); //sync before returning;
+
+#ifdef PARALLEL_PROF
+	_stopTimerAddElapsedParallel(&profTimer, &profElapsed);
+	recordPhaseStats_NB(NBPROF_KICK1, profElapsed, profThreadTimes, nprocs);
+#endif
 
 }
 
@@ -389,8 +518,26 @@ void performNBodyHalfStepBParallel_NB(
 
 	ExecutorThreadPool& threadPool = ExecutorThreadPool::getThreadPool();
 
+#ifdef PARALLEL_PROF
+	float profThreadTimes[NBODY_NPROCS] = {};
+	unsigned long long profTimer;
+	float profElapsed = 0.0f;
+	_startTimerParallel(&profTimer);
+#endif
+
 	//map
 	for (int i = 0; i < nprocs; ++i) {
+#ifdef PARALLEL_PROF
+		std::function<void()> f = [=, &profThreadTimes]() {
+			unsigned long long t; float et = 0.0f;
+			_startTimerParallel(&t);
+			performNBodyHalfStepB(numN[i], dt,
+				r + 3*startN[i], v + 3*startN[i],
+				a + 3*startN[i], m + startN[i]);
+			_stopTimerAddElapsedParallel(&t, &et);
+			profThreadTimes[i] = et;
+		};
+#else
 		std::function<void()> f = std::bind(performNBodyHalfStepB,
 			numN[i],
 			dt,
@@ -399,9 +546,15 @@ void performNBodyHalfStepBParallel_NB(
 			a + 3*startN[i],
 			m + startN[i]
 		);
+#endif
 		threadPool.addTaskAtIdx(f, i);
 	}
 
 	threadPool.waitForAllThreads(); //sync before returning;
+
+#ifdef PARALLEL_PROF
+	_stopTimerAddElapsedParallel(&profTimer, &profElapsed);
+	recordPhaseStats_NB(NBPROF_KICK2, profElapsed, profThreadTimes, nprocs);
+#endif
 
 }

@@ -21,7 +21,7 @@ fi
 
 # ── Sweep parameters ──────────────────────────────────────────────
 NS=(100 200 500)
-THREAD_COUNTS=(1 2 4 8 16)
+THREAD_COUNTS=(1 2 4 8 16 32)
 THETA=0.5
 DT=0.01
 T_END=0.1        # keep short so sweeps finish quickly
@@ -34,7 +34,7 @@ mkdir -p "$(dirname "${OUT_CSV}")"
 
 echo "num_procs,n,theta,elapsed_avg,ekin_avg,epot_avg,energy_avg" > "${OUT_CSV}"
 
-total=$(( ${#NS[@]} * ${#THETAS[@]} ))
+total=$(( ${#NS[@]} * ${#THREAD_COUNTS[@]} ))
 count=0
 
 for N in "${NS[@]}"; do

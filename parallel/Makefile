@@ -1,8 +1,8 @@
 CC = gcc
 CPPC = g++
 INCLUDES=./include
-CCOMPILEARG = -Wall -O3 -funroll-loops -I$(INCLUDES) -std=gnu11
-CPPCOMPILEARG = -Wall -O3 -funroll-loops -I$(INCLUDES) -std=c++11
+CCOMPILEARG = -Wall -O3 -g -funroll-loops -I$(INCLUDES) -std=gnu11
+CPPCOMPILEARG = -Wall -O3 -g -funroll-loops -I$(INCLUDES) -std=c++11
 
 SOURCES = ExecutorThreadPool.o FunctionExecutorThread.o
 
