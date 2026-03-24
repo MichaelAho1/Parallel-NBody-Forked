@@ -101,7 +101,11 @@ void freeParallelData_NB(NBodyParallelData_t* data) {
  * Implements the reduce parallel programmign pattern using a thread pool
  * and an array of trees to merge. Merging is done pairwise.
  */
-void _reduceOctrees_NB(ExecutorThreadPool& threadPool, NBOctree_t** trees, int ntrees) {
+void _reduceOctrees_NB(ExecutorThreadPool& threadPool, NBOctree_t** trees, int ntrees
+#ifdef PARALLEL_PROF
+	, float* profThreadTimes
+#endif
+) {
 
 	//get steps by bit-hacked ceil(log_2(ntrees))
 	int nsteps = 0;
@@ -113,8 +117,20 @@ void _reduceOctrees_NB(ExecutorThreadPool& threadPool, NBOctree_t** trees, int n
 	for (int i = 0; i < nsteps; ++i) {
 		for (int k = 0; k < ntrees; k += 2*stepSize) {
 			if (k + stepSize < ntrees) {
-				// fprintf(stderr, "(%d, %d) merge\n", k, k+stepSize);
-				std::function<void()> f = std::bind(mergeOctreesInPlace_NB, trees[k], trees[k+stepSize]);
+				std::function<void()> f = [=
+#ifdef PARALLEL_PROF
+					, &profThreadTimes
+#endif
+				]() {
+#ifdef PARALLEL_PROF
+					unsigned long long t; float et = 0.0f; _startTimerParallel(&t);
+#endif
+					mergeOctreesInPlace_NB(trees[k], trees[k+stepSize]);
+#ifdef PARALLEL_PROF
+					_stopTimerAddElapsedParallel(&t, &et);
+					profThreadTimes[k] += et; // same thread may merge in multiple steps
+#endif
+				};
 				threadPool.addTaskAtIdx(f, k);
 			}
 		}
@@ -325,7 +341,11 @@ int mapReduceBuildOctreesInPlace_NB(
 
 
 	//reduce
-	_reduceOctrees_NB(threadPool, trees, nprocs);
+	_reduceOctrees_NB(threadPool, trees, nprocs
+#ifdef PARALLEL_PROF
+		, profThreadTimes
+#endif
+	);
 	computeMassVals_NB(trees[0]->root);
 
 #ifdef PARALLEL_PROF

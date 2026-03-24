@@ -20,13 +20,13 @@ if [ ! -x "${BIN}" ]; then
 fi
 
 # ── Sweep parameters ──────────────────────────────────────────────
-NS=(100 200 500)
-THREAD_COUNTS=(1 2 4 8 16 32)
+NS=(5000 10000 20000 40000 80000)
+THREAD_COUNTS=(1 2 4 8 16)
 THETA=0.5
 DT=0.01
 T_END=0.1        # keep short so sweeps finish quickly
 SEED=42
-RUNS=3           # repeated runs to average out noise
+RUNS=20           # repeated runs to average out noise
 # ──────────────────────────────────────────────────────────────────
 
 OUT_CSV="${ROOT}/scripts/Results/strong_scaling.csv"
@@ -38,7 +38,7 @@ total=$(( ${#NS[@]} * ${#THREAD_COUNTS[@]} ))
 count=0
 
 for N in "${NS[@]}"; do
-    for thread_count in "${THREAD_COUNTS[@]}$"; do
+    for thread_count in "${THREAD_COUNTS[@]}"; do
         count=$(( count + 1 ))
         echo -n "[${count}/${total}] num_procs=${thread_count} ... "
 
