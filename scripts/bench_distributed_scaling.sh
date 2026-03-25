@@ -39,7 +39,7 @@ fi
 
 # ── Sweep parameters ──────────────────────────────────────────────
 NS=(20000 40000 80000 160000 320000) # Problem sizes to test. Adjust as needed.
-PROCESS_COUNTS=(1 2 4 8 16 20 40 80 160) # Number of threads to test. Adjust as needed.
+PROCESS_COUNTS=(20 40) # Number of threads to test. Adjust as needed.
 THETA=0.5
 DT=0.01
 T_END=0.1       # 
