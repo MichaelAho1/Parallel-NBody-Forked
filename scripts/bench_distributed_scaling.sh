@@ -38,8 +38,10 @@ if [ ! -x "${BIN}" ]; then
 fi
 
 # ── Sweep parameters ──────────────────────────────────────────────
-NS=(20000 40000 80000 160000 320000) # Problem sizes to test. Adjust as needed.
-PROCESS_COUNTS=(20 40) # Number of threads to test. Adjust as needed.
+#NS=(20000 40000 80000 160000 320000) # Problem sizes to test. Adjust as needed.
+NS=(640000 1280000) # Problem sizes to test. Adjust as needed.
+PROCESS_COUNTS=(20 40 80 160) # Number of processes to test.
+ALG_CHOICES=(1 2 3 4 5 6 7)
 THETA=0.5
 DT=0.01
 T_END=0.1       # 
@@ -47,18 +49,51 @@ SEED=42
 RUNS=1           # repeated runs to average out noise
 # ──────────────────────────────────────────────────────────────────
 
-OUT_CSV="${ROOT}/scripts/Results/distributed_scaling.csv"
+# Optional overrides for quick sbatch smoke tests.
+if [ -n "${NS_OVERRIDE:-}" ]; then
+    read -r -a NS <<< "${NS_OVERRIDE}"
+fi
+if [ -n "${PROCESS_COUNTS_OVERRIDE:-}" ]; then
+    read -r -a PROCESS_COUNTS <<< "${PROCESS_COUNTS_OVERRIDE}"
+fi
+if [ -n "${ALG_CHOICES_OVERRIDE:-}" ]; then
+    read -r -a ALG_CHOICES <<< "${ALG_CHOICES_OVERRIDE}"
+fi
+if [ -n "${RUNS_OVERRIDE:-}" ]; then
+    RUNS="${RUNS_OVERRIDE}"
+fi
+
+extract_metric() {
+    local key="$1"
+    local text="$2"
+    awk -v key="${key}" '
+        index($0, key) == 1 { val = $NF }
+        END {
+            if (val != "") print val
+            else exit 1
+        }
+    ' <<< "${text}"
+}
+
+OUT_CSV="${OUT_CSV:-${ROOT}/scripts/Results/distributed_scaling.csv}"
 mkdir -p "$(dirname "${OUT_CSV}")"
+
+# If the target exists, keep it and write to a timestamped file instead.
+if [ -e "${OUT_CSV}" ]; then
+    ts="$(date +%Y%m%d_%H%M%S)"
+    base="${OUT_CSV%.csv}"
+    OUT_CSV="${base}_${ts}.csv"
+fi
 
 echo "algChoice,num_procs,n,theta,elapsed_avg,energy_avg" > "${OUT_CSV}"
 
-total=$(( ${#NS[@]} * ${#PROCESS_COUNTS[@]} * 7))
+total=$(( ${#NS[@]} * ${#PROCESS_COUNTS[@]} * ${#ALG_CHOICES[@]} ))
 count=0
 
 for N in "${NS[@]}"; do
     for process_count in "${PROCESS_COUNTS[@]}"; do
         # Algorithm 0 is quadratic, so we skip it avoid excessively long runs at large N.
-        for algChoice in {1..7}; do
+        for algChoice in "${ALG_CHOICES[@]}"; do
 
             count=$(( count + 1 ))
             echo -n "[${count}/${total}] num_procs=${process_count} ... "
@@ -67,19 +102,54 @@ for N in "${NS[@]}"; do
 
             tmpfile="$(mktemp)"
             for (( run=1; run<=RUNS; run++ )); do
-                NUM_NODES=$(( process_count > 16 ? (process_count+15) / 16 : 1 ))
-                PROCS_PER_NODE=$(process_count / NUM_NODES)
-                stderr_out="$(salloc -Q -N "${NUM_NODES}" -n "${process_count}" --ntasks-per-node="${PROCS_PER_NODE}" mpirun -np "${process_count}" "${BIN}" "${N}" "${DT}" "${T_END}" "${THETA}" "${SEED}" "${algChoice}" 2>&1 || true)"
+                if [ "$process_count" -eq 40 ]; then
+                    NUM_NODES=4
+                    PROCS_PER_NODE=10
+                else
+                    NUM_NODES=$(( (process_count + 16 - 1) / 16 ))
+                    PROCS_PER_NODE=$(( process_count / NUM_NODES ))
+                fi
+                if ! stderr_out="$(salloc -Q -N "${NUM_NODES}" -n "${process_count}" --ntasks-per-node="${PROCS_PER_NODE}" mpirun -np "${process_count}" "${BIN}" "${N}" "${DT}" "${T_END}" "${THETA}" "${SEED}" "${algChoice}" 2>&1)"; then
+                    echo "failed"
+                    echo "ERROR: launch failed for num_procs=${process_count}, N=${N}, algChoice=${algChoice}, run=${run}" >&2
+                    echo "${stderr_out}" >&2
+                    rm -f "${tmpfile}"
+                    exit 1
+                fi
 
-                elapsed="$(echo "${stderr_out}" | grep -oP 'Elapsed Time:\s*\K[0-9.eE+\-]+' || echo 'nan')"
-                ekin="$(echo    "${stderr_out}" | grep -oP 'Ekin:\s*\K[0-9.eE+\-]+'  | tail -1 || echo 'nan')"
-                epot="$(echo    "${stderr_out}" | grep -oP 'Epot:\s*\K[0-9.eE+\-]+'  | tail -1 || echo 'nan')"
-                eend="$(echo    "${stderr_out}" | grep -oP 'Eend:\s*\K[0-9.eE+\-]+'              || echo 'nan')"
+                if ! elapsed="$(extract_metric "Elapsed Time:" "${stderr_out}")"; then
+                    echo "failed"
+                    echo "ERROR: could not parse Elapsed Time for num_procs=${process_count}, N=${N}, algChoice=${algChoice}, run=${run}" >&2
+                    echo "${stderr_out}" >&2
+                    rm -f "${tmpfile}"
+                    exit 1
+                fi
+                if ! ekin="$(extract_metric "Ekin:" "${stderr_out}")"; then
+                    echo "failed"
+                    echo "ERROR: could not parse Ekin for num_procs=${process_count}, N=${N}, algChoice=${algChoice}, run=${run}" >&2
+                    echo "${stderr_out}" >&2
+                    rm -f "${tmpfile}"
+                    exit 1
+                fi
+                if ! epot="$(extract_metric "Epot:" "${stderr_out}")"; then
+                    echo "failed"
+                    echo "ERROR: could not parse Epot for num_procs=${process_count}, N=${N}, algChoice=${algChoice}, run=${run}" >&2
+                    echo "${stderr_out}" >&2
+                    rm -f "${tmpfile}"
+                    exit 1
+                fi
+                if ! eend="$(extract_metric "Eend:" "${stderr_out}")"; then
+                    echo "failed"
+                    echo "ERROR: could not parse Eend for num_procs=${process_count}, N=${N}, algChoice=${algChoice}, run=${run}" >&2
+                    echo "${stderr_out}" >&2
+                    rm -f "${tmpfile}"
+                    exit 1
+                fi
 
                 echo "${elapsed},${ekin},${epot},${eend}" >> "${tmpfile}"
             done
 
-            read avg_elapsed avg_ekin avg_epot avg_eend <<< $(awk -F, 'BEGIN{OFS=" "} {for(algChoice=1;algChoice<=4;algChoice++){if($algChoice!="nan"){s[algChoice]+=$algChoice;c[algChoice]++}}} END{for(algChoice=1;algChoice<=4;algChoice++){if(c[algChoice]) printf "%g ", s[algChoice]/c[algChoice]; else printf "nan ";}}' "${tmpfile}")
+            read avg_elapsed avg_ekin avg_epot avg_eend <<< "$(awk -F, 'BEGIN{OFS=" "} {for(i=1;i<=4;i++){s[i]+=$i;c[i]++}} END{for(i=1;i<=4;i++){printf "%g ", s[i]/c[i]}}' "${tmpfile}")"
 
             echo "${algChoice},${process_count},${N},${THETA},${avg_elapsed},${avg_eend}" >> "${OUT_CSV}"
             rm -f "${tmpfile}"
