@@ -125,3 +125,7 @@ Energy conservation plot — total energy (kinetic + potential) over time. In a 
 
 
 nbody_visualize.py has been included in the scripts folder
+Example:
+![til](https://github.com/MichaelAho1/Parallel-NBody-Forked/blob/master/nbody.gif)
+
+
