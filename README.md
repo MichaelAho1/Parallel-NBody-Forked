@@ -88,3 +88,40 @@ While the arguments are optional, they must always be entered in the specified o
 5. theta=0.5: double,
 6. algChoice=7: int, the choice of MPI algorithm. The default algorithm is the most sophisticated one. 
 
+## Visualization Alternatives
+Since the JMU cluster does not support OpenGL, a Python-based post-processing visualizer was developed as an alternative. This approach involves having the simulation runs on the cluster and outputs particle positions to a CSV file, which is then visualized locally.
+# Setup
+Requirements — install on your local machine:
+pip install numpy matplotlib
+
+# Next:
+Recompile - make parallel-noviz
+
+# Generating Position Data
+Run the simulation on the cluster, redirecting stdout to a CSV file. The 2>/dev/null flag suppresses timing and energy output so only particle positions are written: ./test.bin 1000 0.01 10.0 42 0.5 7 2>/dev/null > positions.csv
+Download/copy the positions.csv into your local machine.
+
+#Running the Visualizer
+# Interactive window
+python nbody_visualize.py positions.csv
+
+# Save as GIF (no extra dependencies)
+python nbody_visualize.py positions.csv --save nbody.gif
+
+# Save as MP4 (requires ffmpeg)
+python nbody_visualize.py positions.csv --save nbody.mp4
+
+# Limit frames for a shorter preview
+python nbody_visualize.py positions.csv --save nbody.gif --max-frames 100 --fps 15
+
+# Run with synthetic demo data (no simulation needed)
+python nbody_visualize.py --demo
+
+# What the Visualizer Shows
+The visualizer displays three panels updated in real time:
+Main view (XY plane) — all N bodies plotted with a color gradient from blue (low index) to red (high index). A 6-frame motion trail shows recent particle trajectories, making orbital structure and gravitational clustering visible.
+Side view (XZ plane) — the same bodies viewed from the side, showing the 3D depth of the simulation that the main view cannot capture.
+Energy conservation plot — total energy (kinetic + potential) over time. In a physically accurate simulation this should remain close to -0.25. Any significant drift indicates numerical instability.
+
+
+nbody_visualize.py has been included in the scripts folder
