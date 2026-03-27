@@ -116,14 +116,6 @@ python nbody_visualize.py positions.csv --save nbody.gif --max-frames 100 --fps 
 
 # Run with synthetic demo data (no simulation needed)
 python nbody_visualize.py --demo
-
-# What the Visualizer Shows
-The visualizer displays three panels updated in real time:
-Main view (XY plane) — all N bodies plotted with a color gradient from blue (low index) to red (high index). A 6-frame motion trail shows recent particle trajectories, making orbital structure and gravitational clustering visible.
-Side view (XZ plane) — the same bodies viewed from the side, showing the 3D depth of the simulation that the main view cannot capture.
-Energy conservation plot — total energy (kinetic + potential) over time. In a physically accurate simulation this should remain close to -0.25. Any significant drift indicates numerical instability.
-
-
 nbody_visualize.py has been included in the scripts folder
 Example:
 ![til](https://github.com/MichaelAho1/Parallel-NBody-Forked/blob/master/nbody.gif)
