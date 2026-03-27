@@ -122,17 +122,16 @@ void NBodySimSerial(long N, double dt, double t_end, time_t seed, double theta) 
         performNBodyHalfStepB(N, dt, r, v, a, m);
 
         // Print checkpoints.
-        // if (t >= t_out) {
-        //     Ekin = computeEkin_NB(N, m, v);
-        //     Epot = computeEpot_NB(N, m, r);
-        //     double E1 = Ekin + Epot;
-        //     for (long k = 0; k < N; ++k) {
-        //         printf("%.15g %.15g %.15g ", r[3*k], r[3*k+1], r[3*k+2]);
-        //     }
-        //     printf("%.15g\n", E1);
-
-        //     t_out += dt_out;
-        // }
+        if (t >= t_out) {
+            Ekin = computeEkin_NB(N, m, v);
+            Epot = computeEpot_NB(N, m, r);
+            double E1 = Ekin + Epot;
+            for (long k = 0; k < N; ++k) {
+                printf("%.15g %.15g %.15g ", r[3*k], r[3*k+1], r[3*k+2]);
+            }
+            printf("%.15g\n", E1);
+            t_out += dt_out;
+        }
     }
 
     float elapsed = 0.0;
@@ -168,7 +167,7 @@ void NBodySimSerial(long N, double dt, double t_end, time_t seed, double theta) 
 void NBodySimParallel(long N, double dt, double t_end, time_t seed, double theta) {
     int nprocs = getNBodyNProcs_NB();
     ExecutorThreadPool::maxThreads = nprocs;
-    printf("Number of processes: %d\n", nprocs);
+    fprintf(stderr, "Number of processes: %d\n", nprocs);
 
 /**********************************
  * Init data
@@ -238,7 +237,7 @@ void NBodySimParallel(long N, double dt, double t_end, time_t seed, double theta
 #ifdef PARALLEL_PROF
     initPhaseStats_NB();
 #endif
-    double dt_out = 0.1;
+    double dt_out = 0.05;
     double t_out = dt_out;
     unsigned long long startTimer;
     _startTimerParallel(&startTimer);
@@ -283,6 +282,18 @@ void NBodySimParallel(long N, double dt, double t_end, time_t seed, double theta
 
         //kick
         performNBodyHalfStepBParallel_NB(dt, r, v, a, m, pdata.startN, pdata.numN, nprocs);
+
+        // Print checkpoints.
+        if (t >= t_out) {
+            Ekin = computeEkin_NB(N, m, v);
+            Epot = computeEpot_NB(N, m, r);
+            double E1 = Ekin + Epot;
+            for (long k = 0; k < N; ++k) {
+                printf("%.15g %.15g %.15g ", r[3*k], r[3*k+1], r[3*k+2]);
+            }
+            printf("%.15g\n", E1);
+            t_out += dt_out;
+        }
     }
 
     float elapsed = 0.0;
