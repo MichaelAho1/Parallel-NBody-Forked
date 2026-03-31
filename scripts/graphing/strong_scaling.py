@@ -51,7 +51,6 @@ def graph_time_versus_num_procs(combined_df: pd.DataFrame) -> (plt.Figure, plt.A
 
     algorithm_frames = split_dataframe_on_algorithm(combined_df)
     for (i, frame) in enumerate(algorithm_frames):
-        print(i)
         color = color_map[i]
         ax.plot(frame["num_procs"], frame["elapsed_avg"], color=color, label=f"Algorithm {i+1}")
 
@@ -103,10 +102,8 @@ def graph_parallel_scaling(combined_df: pd.DataFrame, save=False):
         plt.show()
 
 
-
-df = load_parallel_scaling_data()
-graph_parallel_scaling(df, save=True)
-
-
+if __name__ == "__main__":
+    df = load_parallel_scaling_data()
+    graph_parallel_scaling(df, save=True)
 
 
