@@ -90,34 +90,61 @@ While the arguments are optional, they must always be entered in the specified o
 
 ## Visualization Alternatives
 Since the JMU cluster does not support OpenGL, a Python-based post-processing visualizer was developed as an alternative. This approach involves having the simulation runs on the cluster and outputs particle positions to a CSV file, which is then visualized locally.
-# Setup
+### Setup
 Requirements — install on your local machine:
 pip install numpy matplotlib
 
-# Next:
+### Next:
 Recompile - make parallel-noviz
 
-# Generating Position Data
-Run the simulation on the cluster, redirecting stdout to a CSV file. The 2>/dev/null flag suppresses timing and energy output so only particle positions are written: ./test.bin 1000 0.01 10.0 42 0.5 7 2>/dev/null > positions.csv
+### Generating Position Data
+Run the simulation on the cluster, redirecting stdout to a CSV file. The 2>/dev/null flag suppresses timing and energy output so only particle positions are written: srun ./test.bin 1000 0.01 10.0 42 0.5 7 2>/dev/null > positions.csv
 Download/copy the positions.csv into your local machine.
 
 #Running the Visualizer
-# Interactive window
+### Interactive window
 python nbody_visualize.py positions.csv
 
-# Save as GIF (no extra dependencies)
+### Save as GIF (no extra dependencies)
 python nbody_visualize.py positions.csv --save nbody.gif
 
-# Save as MP4 (requires ffmpeg)
+### Save as MP4 (requires ffmpeg)
 python nbody_visualize.py positions.csv --save nbody.mp4
 
-# Limit frames for a shorter preview
+### Limit frames for a shorter preview
 python nbody_visualize.py positions.csv --save nbody.gif --max-frames 100 --fps 15
 
-# Run with synthetic demo data (no simulation needed)
+### Run with synthetic demo data (no simulation needed)
 python nbody_visualize.py --demo
 nbody_visualize.py has been included in the scripts folder
 Example:
 ![til](https://github.com/MichaelAho1/Parallel-NBody-Forked/blob/master/nbody.gif)
 
+## Reproducing Test Results
+
+The main means of reproducing test results is our testing scripts in the scripts directory.
+The two scripts we most use are 'bench_weak_scaling.sh' for the parallel algorithm and 
+'bench_distributed_scaling' for the distributed algorithm. The distributed scaling script
+takes several parameters, including the number of processes to try, n bodies to try, and 
+which algorithms to try, and how many times to repeat each trial. There are also other
+parameters that influence the simulation, such as theta, dt, and t_end. Read the report
+in the docs folder for further explanation, but keep them as is for our tests. Run the 
+scripts using sbatch, i.e.
+
+sbatch bench_distributed_scaling.sh.
+
+Both scripts expect their required binary to be compiled beforehand. For the weak scaling
+script, this is test.bin from compiling 'make parallel-prof.'. For the distributed scaling test,
+
+
+These scripts output a file in 'scripts/Results', the name of file is the same as the script,
+minus the initial bench, i.e 'weak_scaling.csv'. If said file already exists, they add the date
+and time to the name to ensure that it is unique.
+
+## Reproducing Graphs
+
+To reproduce our graphs, use the python scripts provided in 'scripts/graphing'. Note that
+these scripts will not run on the JMU cluster, and require matplotlib. I recommend copying
+this folder and any needed test files onto your local machine. The 'demo.py' script gives
+several examples of how to create graphs.
 

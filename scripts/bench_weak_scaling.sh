@@ -31,6 +31,13 @@ RUNS=10
 OUT_CSV="${ROOT}/scripts/Results/weak_scaling.csv"
 mkdir -p "$(dirname "${OUT_CSV}")"
 
+# If the target exists, keep it and write to a timestamped file instead.
+if [ -e "${OUT_CSV}" ]; then
+    ts="$(date +%Y%m%d_%H%M%S)"
+    base="${OUT_CSV%.csv}"
+    OUT_CSV="${base}_${ts}.csv"
+fi
+
 # Profiling columns require a profile-noviz build.
 # They will be 'nan' for binaries built without -DPARALLEL_PROF.
 echo "num_procs,n,theta,elapsed_avg,energy_avg,work_pct_avg,overhead_pct_avg,forces_work_pct,forces_avg_imbal_avg,forces_max_imbal_avg,forces_oh_pct_avg,treebuild_total_pct,treebuild_oh_pct_avg,datasort_total_pct,datasort_oh_pct_avg" > "${OUT_CSV}"
