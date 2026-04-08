@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=bench_weak_scaling
-#SBATCH --partition=cs
-#SBATCH --account=cs470
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16

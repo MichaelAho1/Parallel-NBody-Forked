@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=bench_distributed_scaling
-#SBATCH --partition=cs
-#SBATCH --account=cs470
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
@@ -38,9 +36,9 @@ if [ ! -x "${BIN}" ]; then
 fi
 
 # ── Sweep parameters ──────────────────────────────────────────────
-#NS=(20000 40000 80000 160000 320000) # Problem sizes to test. Adjust as needed.
-NS=(640000 1280000) # Problem sizes to test. Adjust as needed.
-PROCESS_COUNTS=(20 40 80 160) # Number of processes to test.
+NS=(20000 40000 80000 160000 320000) # Problem sizes to test. Adjust as needed.
+# NS=(640000 1280000) # Problem sizes to test. Adjust as needed.
+PROCESS_COUNTS=(1 2 4 8 16 20 40 80 160) # Number of processes to test.
 ALG_CHOICES=(1 2 3 4 5 6 7)
 THETA=0.5
 DT=0.01
