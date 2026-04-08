@@ -126,15 +126,25 @@ The main means of reproducing test results is our testing scripts in the scripts
 The two scripts we most use are 'bench_weak_scaling.sh' for the parallel algorithm and 
 'bench_distributed_scaling' for the distributed algorithm. The distributed scaling script
 takes several parameters, including the number of processes to try, n bodies to try, and 
-which algorithms to try, and how many times to repeat each trial. There are also other
-parameters that influence the simulation, such as theta, dt, and t_end. Read the report
-in the docs folder for further explanation, but keep them as is for our tests. Run the 
-scripts using sbatch, i.e.
+which algorithms to try, and how many times to repeat each trial. The parameters we
+used for our distributed tests are 
+
+NS=(20000 40000 80000 160000 320000)
+PROCESS_COUNTS=(1 2 4 8 16 20 40 80 160)
+
+and the parameters we used for our parallel tests are
+
+THREAD_COUNTS=(1 2 4 8 16)
+NS=(10000 20000 40000 80000 160000)
+
+There are also other parameters that influence the simulation, such as theta, dt, and t_end.
+Read the report in the docs folder for further explanation, but keep them as is for our tests. Run the scripts using sbatch, i.e.
 
 sbatch bench_distributed_scaling.sh.
 
 Both scripts expect their required binary to be compiled beforehand. For the weak scaling
 script, this is test.bin from compiling 'make parallel-prof.'. For the distributed scaling test,
+run 'make mpi-noviz'.
 
 
 These scripts output a file in 'scripts/Results', the name of file is the same as the script,
