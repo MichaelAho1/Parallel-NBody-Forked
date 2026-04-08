@@ -15,9 +15,7 @@
 #SBATCH --error=%x_%j.err
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-ROOT="${ROOT:-${REPO_ROOT}}"
+ROOT="/nfs/home/ahoma/final-project/Parallel-NBody"
 BIN="${ROOT}/test.bin"
 
 if [ ! -x "${BIN}" ]; then
