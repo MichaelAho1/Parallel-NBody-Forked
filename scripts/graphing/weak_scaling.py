@@ -99,8 +99,8 @@ if __name__ == "__main__":
 
     # Parallel weak scaling (threads, weak_scaling.csv)
     parallel_df = pd.read_csv("weak_scaling.csv")
-    graph_weak_scaling_parallel(parallel_df, n_per_proc=10000, in_node=args.in_node, save=not args.show)
+    graph_weak_scaling_parallel(parallel_df, n_per_proc=20000, in_node=args.in_node, save=not args.show)
 
     # Distributed weak scaling (processes, distributed_scaling.csv)
     distributed_df = pd.read_csv("distributed_scaling.csv")
-    graph_weak_scaling_distributed(distributed_df, n_per_proc=10000, in_node=args.in_node, save=not args.show)
+    graph_weak_scaling_distributed(distributed_df, n_per_proc=20000, in_node=args.in_node, save=not args.show)
