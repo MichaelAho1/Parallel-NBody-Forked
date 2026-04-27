@@ -8,15 +8,18 @@
 # === Safety flags ===
 set -euo pipefail
 
+# Resolve paths relative to this script so the benchmark works from any checkout.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)" # Repository root path.
+
 # === User-tunable parameters ===
-ROOT_DIR="/nfs/home/carllg/Parallel-NBody-Forked" # Repository root path.
 RUNS=1                                             # Repetitions per sweep point.
-THETA=0.5                                          # Barnes-Hut acceptance threshold.
-DT=0.01                                            # Simulation timestep.
+THETA=1                                          # Barnes-Hut acceptance threshold.
+DT=0.1                                            # Simulation timestep.
 T_END=0.1                                          # Simulation end time.
 SEED=42                                            # Random seed.
-THREAD_COUNTS=(1 2 4 8 16)                        # Shared-memory thread counts.
-NS=(10000 20000 40000 80000 160000)               # N values matched to weak scaling.
+THREAD_COUNTS=(1 2)                        # Shared-memory thread counts.
+NS=(10000 20000)               # N values matched to weak scaling.
 
 # === Derived/internal constants ===
 BIN_PATH="${ROOT_DIR}/test.bin"
@@ -26,7 +29,7 @@ CSV_HEADER="num_procs,n,theta,elapsed_avg,energy_avg,work_pct_avg,overhead_pct_a
 
 # === Shared helper imports ===
 # sbatch executes a copied script from a spool directory, so source helpers via ROOT_DIR.
-# shellcheck source=/nfs/home/carllg/Parallel-NBody-Forked/scripts/bench_helpers.sh
+# shellcheck source=scripts/bench_helpers.sh
 source "${ROOT_DIR}/scripts/bench_helpers.sh"
 
 bench_require_executable "${BIN_PATH}" "make profile-noviz"

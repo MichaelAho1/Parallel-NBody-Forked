@@ -8,8 +8,11 @@
 # === Safety flags ===
 set -euo pipefail
 
+# Resolve paths relative to this script so the benchmark works from any checkout.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)" # Repository root path.
+
 # === User-tunable parameters ===
-ROOT_DIR="/nfs/home/carllg/Parallel-NBody-Forked" # Repository root path.
 RUNS=1                                             # Repetitions per sweep point.
 THETA=0.5                                          # Barnes-Hut acceptance threshold.
 DT=0.01                                            # Simulation timestep.
@@ -29,7 +32,7 @@ CSV_HEADER="num_procs,n,elapsed_avg,energy_avg,algChoice,theta,runs_succeeded,ru
 
 # === Shared helper imports ===
 # sbatch executes a copied script from a spool directory, so source helpers via ROOT_DIR.
-# shellcheck source=/nfs/home/carllg/Parallel-NBody-Forked/scripts/bench_helpers.sh
+# shellcheck source=scripts/bench_helpers.sh
 source "${ROOT_DIR}/scripts/bench_helpers.sh"
 
 bench_setup_mpi_runtime
