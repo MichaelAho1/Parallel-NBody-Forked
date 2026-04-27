@@ -8,9 +8,24 @@
 # === Safety flags ===
 set -euo pipefail
 
-# Resolve paths relative to this script so the benchmark works from any checkout.
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)" # Repository root path.
+resolve_root_dir() {
+    if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
+        if [[ -f "${SLURM_SUBMIT_DIR}/scripts/bench_helpers.sh" ]]; then
+            printf '%s\n' "${SLURM_SUBMIT_DIR}"
+            return
+        fi
+
+        if [[ -f "${SLURM_SUBMIT_DIR}/../scripts/bench_helpers.sh" ]]; then
+            (cd -- "${SLURM_SUBMIT_DIR}/.." && pwd)
+            return
+        fi
+    fi
+
+    SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+    (cd -- "${SCRIPT_DIR}/.." && pwd)
+}
+
+ROOT_DIR="$(resolve_root_dir)" # Repository root path.
 
 # === User-tunable parameters ===
 RUNS=1                                             # Repetitions per sweep point.
