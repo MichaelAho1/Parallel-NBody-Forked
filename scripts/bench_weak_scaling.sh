@@ -29,8 +29,8 @@ ROOT_DIR="$(resolve_root_dir)" # Repository root path.
 
 # === User-tunable parameters ===
 RUNS=1                                            # Repetitions per sweep point.
-THETA=0.5                                          # Barnes-Hut acceptance threshold.
-DT=0.1                                            # Simulation timestep.
+THETA=0.5                                         # Barnes-Hut acceptance threshold.
+DT=0.01                                            # Simulation timestep.
 T_END=0.1                                          # Simulation end time.
 SEED=42                                            # Random seed.
 THREAD_COUNTS=(1 2)                        # Shared-memory thread counts.
