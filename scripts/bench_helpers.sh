@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 resolve_root_dir() {
     if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
         if [[ -f "${SLURM_SUBMIT_DIR}/scripts/bench_helpers.sh" ]]; then
