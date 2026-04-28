@@ -1,23 +1,42 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=bench_distributed_scaling
-#SBATCH --nodes=1
-#SBATCH --ntasks=16
+#SBATCH --nodes=10
+#SBATCH --ntasks=160
 #SBATCH --cpus-per-task=1
 #SBATCH --time=5-24:00:00
 
 # === Safety flags ===
 set -euo pipefail
 
+resolve_root_dir() {
+    if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
+        if [[ -f "${SLURM_SUBMIT_DIR}/scripts/bench_helpers.sh" ]]; then
+            printf '%s\n' "${SLURM_SUBMIT_DIR}"
+            return
+        fi
+
+        if [[ -f "${SLURM_SUBMIT_DIR}/../scripts/bench_helpers.sh" ]]; then
+            (cd -- "${SLURM_SUBMIT_DIR}/.." && pwd)
+            return
+        fi
+    fi
+
+    SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+    (cd -- "${SCRIPT_DIR}/.." && pwd)
+}
+
+ROOT_DIR="$(resolve_root_dir)" # Repository root path.
+
 # === User-tunable parameters ===
-ROOT_DIR="/nfs/home/carllg/Parallel-NBody-Forked" # Repository root path.
 RUNS=1                                             # Repetitions per sweep point.
 THETA=0.5                                          # Barnes-Hut acceptance threshold.
 DT=0.01                                            # Simulation timestep.
 T_END=0.1                                          # Simulation end time.
 SEED=42 
-NS=(1000)                                           # Particle counts for the distributed sweep.
-# NS=(20000 40000 80000 160000 320000)              # Particle counts for distributed scaling.
-PROCESS_COUNTS=(1 2 4 8 16)          # MPI process counts.
+# NS=(20000)                                           # Particle counts for the distributed sweep.
+#NS=(20000 40000 80000 160000 320000)              # Particle counts for distributed scaling.
+NS=(640000 1280000)              # Particle counts for distributed scaling (reduced for debugging).
+PROCESS_COUNTS=(20 40 80 160)          # MPI process counts.
 ALG_CHOICES=(1 2 3 4 5 6 7)                       # MPI algorithm IDs to evaluate.
 MAX_PROCS_PER_NODE=16                              # Expected maximum MPI ranks per node.
 
@@ -28,7 +47,7 @@ CSV_HEADER="num_procs,n,elapsed_avg,energy_avg,algChoice,theta,runs_succeeded,ru
 
 # === Shared helper imports ===
 # sbatch executes a copied script from a spool directory, so source helpers via ROOT_DIR.
-# shellcheck source=/nfs/home/carllg/Parallel-NBody-Forked/scripts/bench_helpers.sh
+# shellcheck source=scripts/bench_helpers.sh
 source "${ROOT_DIR}/scripts/bench_helpers.sh"
 
 bench_setup_mpi_runtime
