@@ -1,0 +1,5 @@
+num_procs,n,theta,elapsed_avg,energy_avg,work_pct_avg,overhead_pct_avg,forces_total_pct,forces_avg_imbal_avg,forces_max_imbal_avg,forces_oh_pct_avg,treebuild_total_pct,treebuild_oh_pct_avg,datasort_total_pct,datasort_oh_pct_avg
+1,10000,1,0.072359,-0.249153,98.92,1.08,92.6164,0,0,0,7.0626,13.6364,0,0
+2,10000,1,0.042103,-0.249153,97.49,2.51,90.4389,0.000227,0.000227,0.519931,8.93417,19.2982,0,0
+1,20000,1,0.180972,-0.249004,99.13,0.87,93.6441,0,0,0,6.07345,12.7907,0,0
+2,20000,1,0.113329,-0.249004,98.07,1.93,91.6209,0.000163,0.000163,0.149925,7.89835,20,0,0
