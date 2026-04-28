@@ -34,7 +34,7 @@ DT=0.01                                            # Simulation timestep.
 T_END=0.1                                          # Simulation end time.
 SEED=42
 NS=(20000 40000 80000 160000 320000)              # Particle counts for distributed scaling.
-PROCESS_COUNTS=(20 40 80 160)          # MPI process counts.
+PROCESS_COUNTS=(1 2 4 8 16 20 40 80 160)          # MPI process counts.
 ALG_CHOICES=(1 2 3 4 5 6 7)                       # MPI algorithm IDs to evaluate.
 MAX_PROCS_PER_NODE=16                              # Expected maximum MPI ranks per node.
 
