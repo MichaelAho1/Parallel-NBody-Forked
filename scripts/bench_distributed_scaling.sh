@@ -17,14 +17,31 @@ ALG_CHOICES=(1 2 3 4 5 6 7)                       # MPI algorithm IDs to evaluat
 MAX_PROCS_PER_NODE=16                              # Expected maximum MPI ranks per node.
 
 
-# === Shared helper imports ===
-# sbatch executes a copied script from a spool directory, so source helpers via ROOT_DIR.
-# shellcheck source=scripts/bench_helpers.sh
-source "${ROOT_DIR}/scripts/bench_helpers.sh"
-# === Derived/internal constants ===
-
 set -euo pipefail
 
+# locate and source bench_helpers.sh from several likely locations.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
+    if [[ -f "${SLURM_SUBMIT_DIR}/scripts/bench_helpers.sh" ]]; then
+        source "${SLURM_SUBMIT_DIR}/scripts/bench_helpers.sh"
+    elif [[ -f "${SLURM_SUBMIT_DIR}/Parallel-NBody-Forked/scripts/bench_helpers.sh" ]]; then
+        source "${SLURM_SUBMIT_DIR}/Parallel-NBody-Forked/scripts/bench_helpers.sh"
+    elif [[ -f "${SCRIPT_DIR}/bench_helpers.sh" ]]; then
+        source "${SCRIPT_DIR}/bench_helpers.sh"
+    else
+        echo "ERROR: cannot find scripts/bench_helpers.sh to source" >&2
+        exit 1
+    fi
+else
+    if [[ -f "${SCRIPT_DIR}/bench_helpers.sh" ]]; then
+        source "${SCRIPT_DIR}/bench_helpers.sh"
+    else
+        echo "ERROR: cannot find scripts/bench_helpers.sh to source" >&2
+        exit 1
+    fi
+fi
+
+# Now compute repository root using the canonical helper implementation.
 ROOT_DIR="$(resolve_root_dir)" # Repository root path.
 BIN_PATH="${ROOT_DIR}/mpi-noviz-test.bin"
 OUT_CSV="${OUT_CSV:-${ROOT_DIR}/scripts/Results/distributed_scaling.csv}"

@@ -14,13 +14,37 @@ SEED=42                                            # Random seed.
 THREAD_COUNTS=(1 2 4 8 16)                        # Shared-memory thread counts.
 NS=(10000 20000 40000 80000 160000)               # N values matched to weak scaling.
 
-# === Shared helper imports ===
-# sbatch executes a copied script from a spool directory, so source helpers via ROOT_DIR.
-# shellcheck source=scripts/bench_helpers.sh
-source "${ROOT_DIR}/scripts/bench_helpers.sh"
 # === Derived/internal constants ===
 set -euo pipefail
+
+# locate and source bench_helpers.sh from several likely locations.
+# Source `bench_helpers.sh` from the SLURM submit dir when available,
+# otherwise use the script's directory (simple, consistent layout).
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
+    if [[ -f "${SLURM_SUBMIT_DIR}/scripts/bench_helpers.sh" ]]; then
+        source "${SLURM_SUBMIT_DIR}/scripts/bench_helpers.sh"
+    elif [[ -f "${SLURM_SUBMIT_DIR}/Parallel-NBody-Forked/scripts/bench_helpers.sh" ]]; then
+        source "${SLURM_SUBMIT_DIR}/Parallel-NBody-Forked/scripts/bench_helpers.sh"
+    elif [[ -f "${SCRIPT_DIR}/bench_helpers.sh" ]]; then
+        source "${SCRIPT_DIR}/bench_helpers.sh"
+    else
+        echo "ERROR: cannot find scripts/bench_helpers.sh to source" >&2
+        exit 1
+    fi
+else
+    if [[ -f "${SCRIPT_DIR}/bench_helpers.sh" ]]; then
+        source "${SCRIPT_DIR}/bench_helpers.sh"
+    else
+        echo "ERROR: cannot find scripts/bench_helpers.sh to source" >&2
+        exit 1
+    fi
+fi
+
+# Now compute repository root using the canonical helper implementation.
 ROOT_DIR="$(resolve_root_dir)" # Repository root path.
+
+# BIN_PATH uses the repository root determined by the helper
 BIN_PATH="${ROOT_DIR}/test.bin"
 OUT_CSV="${OUT_CSV:-${ROOT_DIR}/scripts/Results/weak_scaling.csv}"
 # `nan` means a profiling metric is unavailable for this build (for example on non-profiled binaries).
