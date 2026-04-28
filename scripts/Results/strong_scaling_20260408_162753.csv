@@ -1,2 +1,0 @@
-num_procs,n,theta,elapsed_avg,ekin_avg,epot_avg,energy_avg
-1,5000,0.5,1.01012,0.25,-0.498215,-0.249992

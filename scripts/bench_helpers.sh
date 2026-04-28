@@ -1,4 +1,20 @@
 #!/usr/bin/env bash
+resolve_root_dir() {
+    if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
+        if [[ -f "${SLURM_SUBMIT_DIR}/scripts/bench_helpers.sh" ]]; then
+            printf '%s\n' "${SLURM_SUBMIT_DIR}"
+            return
+        fi
+
+        if [[ -f "${SLURM_SUBMIT_DIR}/../scripts/bench_helpers.sh" ]]; then
+            (cd -- "${SLURM_SUBMIT_DIR}/.." && pwd)
+            return
+        fi
+    fi
+
+    SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+    (cd -- "${SCRIPT_DIR}/.." && pwd)
+}
 
 bench_require_executable() {
     local bin_path="$1"

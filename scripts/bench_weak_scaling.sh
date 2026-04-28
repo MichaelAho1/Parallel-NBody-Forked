@@ -5,47 +5,26 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --time=5-24:00:00
 
-# === Safety flags ===
-set -euo pipefail
-
-resolve_root_dir() {
-    if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
-        if [[ -f "${SLURM_SUBMIT_DIR}/scripts/bench_helpers.sh" ]]; then
-            printf '%s\n' "${SLURM_SUBMIT_DIR}"
-            return
-        fi
-
-        if [[ -f "${SLURM_SUBMIT_DIR}/../scripts/bench_helpers.sh" ]]; then
-            (cd -- "${SLURM_SUBMIT_DIR}/.." && pwd)
-            return
-        fi
-    fi
-
-    SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-    (cd -- "${SCRIPT_DIR}/.." && pwd)
-}
-
-ROOT_DIR="$(resolve_root_dir)" # Repository root path.
-
 # === User-tunable parameters ===
-RUNS=1                                             # Repetitions per sweep point.
-THETA=1                                          # Barnes-Hut acceptance threshold.
-DT=0.1                                            # Simulation timestep.
+RUNS=10                                             # Repetitions per sweep point.
+THETA=0.5                                         # Barnes-Hut acceptance threshold.
+DT=0.01                                            # Simulation timestep.
 T_END=0.1                                          # Simulation end time.
 SEED=42                                            # Random seed.
-THREAD_COUNTS=(1 2)                        # Shared-memory thread counts.
-NS=(10000 20000)               # N values matched to weak scaling.
-
-# === Derived/internal constants ===
-BIN_PATH="${ROOT_DIR}/test.bin"
-OUT_CSV="${OUT_CSV:-${ROOT_DIR}/scripts/Results/weak_scaling.csv}"
-# `nan` means a profiling metric is unavailable for this build (for example on non-profiled binaries).
-CSV_HEADER="num_procs,n,theta,elapsed_avg,energy_avg,work_pct_avg,overhead_pct_avg,forces_total_pct,forces_avg_imbal_avg,forces_max_imbal_avg,forces_oh_pct_avg,treebuild_total_pct,treebuild_oh_pct_avg,datasort_total_pct,datasort_oh_pct_avg"
+THREAD_COUNTS=(1 2 4 8 16)                        # Shared-memory thread counts.
+NS=(10000 20000 40000 80000 160000)               # N values matched to weak scaling.
 
 # === Shared helper imports ===
 # sbatch executes a copied script from a spool directory, so source helpers via ROOT_DIR.
 # shellcheck source=scripts/bench_helpers.sh
 source "${ROOT_DIR}/scripts/bench_helpers.sh"
+# === Derived/internal constants ===
+set -euo pipefail
+ROOT_DIR="$(resolve_root_dir)" # Repository root path.
+BIN_PATH="${ROOT_DIR}/test.bin"
+OUT_CSV="${OUT_CSV:-${ROOT_DIR}/scripts/Results/weak_scaling.csv}"
+# `nan` means a profiling metric is unavailable for this build (for example on non-profiled binaries).
+CSV_HEADER="num_procs,n,theta,elapsed_avg,energy_avg,work_pct_avg,overhead_pct_avg,forces_total_pct,forces_avg_imbal_avg,forces_max_imbal_avg,forces_oh_pct_avg,treebuild_total_pct,treebuild_oh_pct_avg,datasort_total_pct,datasort_oh_pct_avg"
 
 bench_require_executable "${BIN_PATH}" "make profile-noviz"
 OUT_CSV="$(bench_prepare_csv "${OUT_CSV}" "${CSV_HEADER}")"
