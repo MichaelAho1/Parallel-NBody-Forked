@@ -88,6 +88,7 @@ While the arguments are optional, they must always be entered in the specified o
 5. theta=0.5: double,
 6. algChoice=7: int, the choice of MPI algorithm. The default algorithm is the most sophisticated one. 
 
+The 6th argument is not required for the parallel or serial algorithm. 
 ## Visualization Alternatives
 Since the JMU cluster does not support OpenGL, a Python-based post-processing visualizer was developed as an alternative. This approach involves having the simulation runs on the cluster and outputs particle positions to a CSV file, which is then visualized locally.
 ### Setup
@@ -130,20 +131,15 @@ All benchmark CSV outputs live under `scripts/Results/` and use the `<experiment
 | Script | Purpose | Required binary | Output CSV |
 |---|---|---|---|
 | `scripts/bench_weak_scaling.sh` | Shared-memory weak scaling (`N` scales with threads). | `test.bin` from `make profile-noviz` | `scripts/Results/weak_scaling.csv` |
-| `scripts/bench_strong_scaling.sh` | Shared-memory strong scaling (fixed `N`, vary threads). | `test.bin` from `make parallel-noviz` | `scripts/Results/strong_scaling.csv` |
-| `scripts/bench_theta_N.sh` | Accuracy/performance sweep over `N` and `theta`. | `test.bin` from `make parallel-noviz` | `scripts/Results/theta_N.csv` |
 | `scripts/bench_distributed_scaling.sh` | MPI distributed scaling sweep over processes and algorithm choices. | `mpi-noviz-test.bin` from `make mpi-noviz` | `scripts/Results/distributed_scaling.csv` |
 
 ### Quickstart (One Page)
 
 1. Build the needed binary:
 	- Shared-memory weak profiling: `make profile-noviz`
-	- Shared-memory strong/theta sweeps: `make parallel-noviz`
 	- Distributed MPI sweep: `make mpi-noviz`
 2. Submit a benchmark script from repo root:
 	- `sbatch scripts/bench_weak_scaling.sh`
-	- `sbatch scripts/bench_strong_scaling.sh`
-	- `sbatch scripts/bench_theta_N.sh`
 	- `sbatch scripts/bench_distributed_scaling.sh`
 3. Find results in `scripts/Results/`:
 	- Canonical names are listed above.
@@ -179,14 +175,14 @@ The distributed CSV now includes additional metadata columns for `runs_succeeded
 | If you want to measure... | Use this script |
 |---|---|
 | How throughput scales when work per thread stays roughly constant | `scripts/bench_weak_scaling.sh` |
-| How runtime drops with more threads at fixed problem size | `scripts/bench_strong_scaling.sh` |
-| How `theta` trades off speed and energy error across `N` | `scripts/bench_theta_N.sh` |
 | How MPI process count and algorithm choice scale in distributed runs | `scripts/bench_distributed_scaling.sh` |
 
 ## Reproducing Graphs
 
 To reproduce our graphs, use the python scripts provided in 'scripts/graphing'. Note that
-these scripts will not run on the JMU cluster, and require matplotlib. I recommend copying
-this folder and any needed test files onto your local machine. The 'demo.py' script gives
-several examples of how to create graphs.
+these scripts will not run on the JMU cluster, and require matplotlib. I recommend cloning
+this folder on your local machine, and copying and pasting any needed test files. Some test
+files are provided. The file `demo.py` contains several examples for creating graphs.
+See `weak_scaling.py` and `strong_scaling.py` for more information about the graphing functions.
+
 
