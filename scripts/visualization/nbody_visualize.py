@@ -16,13 +16,19 @@ To generate positions.csv from the simulation:
     1. In NBodySimulation.cpp, uncomment the checkpoint printing block (~line 103)
     2. make parallel-noviz
     3. ./test.bin 500 0.01 10.0 42 0.5 7 > positions.csv
+
+FOR DEMO IN CLASS:
+python3.12 -m venv ~/nbody-env
+source ~/nbody-env/bin/activate
+pip install numpy matplotlib 
+python scripts/visualization/nbody_visualize.py positions.csv --save nbody_class.gif
 """
 
 import sys
 import argparse
 import numpy as np
 import matplotlib
-matplotlib.use("TkAgg")
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.colors import LinearSegmentedColormap
@@ -43,7 +49,7 @@ def make_cmap():
 # Data loading
 def load_positions(filepath):
     frames, energies = [], []
-    print(f"Loading {filepath}...")
+    # print(f"Loading {filepath}...")
     with open(filepath) as f:
         for line in f:
             line = line.strip()
@@ -57,7 +63,7 @@ def load_positions(filepath):
             N = len(coords) // 3
             frames.append(np.array(coords).reshape(N, 3))
             energies.append(energy)
-    print(f"  {len(frames)} frames, {frames[0].shape[0]} bodies.")
+    # print(f"  {len(frames)} frames, {frames[0].shape[0]} bodies.")
     return frames, energies
 
 
@@ -194,7 +200,7 @@ def run_visualizer(frames, energies, save_path=None, fps=24, max_frames=None):
     )
 
     if save_path:
-        print(f"Saving to {save_path} ...")
+        # print(f"Saving to {save_path} ...")
         writer = (animation.FFMpegWriter(fps=fps) if save_path.endswith(".mp4")
                   else animation.PillowWriter(fps=fps))
         ani.save(save_path, writer=writer, dpi=140,
