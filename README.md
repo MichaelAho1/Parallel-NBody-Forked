@@ -88,6 +88,7 @@ While the arguments are optional, they must always be entered in the specified o
 5. theta=0.5: double,
 6. algChoice=7: int, the choice of MPI algorithm. The default algorithm is the most sophisticated one. 
 
+The 6th argument is not required for the parallel or serial algorithm. 
 ## Visualization Alternatives
 Since the JMU cluster does not support OpenGL, a Python-based post-processing visualizer was developed as an alternative. This approach involves having the simulation runs on the cluster and outputs particle positions to a CSV file, which is then visualized locally.
 ### Setup
@@ -122,39 +123,66 @@ Example:
 
 ## Reproducing Test Results
 
-The main means of reproducing test results is our testing scripts in the scripts directory.
-The two scripts we most use are 'bench_weak_scaling.sh' for the parallel algorithm and 
-'bench_distributed_scaling' for the distributed algorithm. The distributed scaling script
-takes several parameters, including the number of processes to try, n bodies to try, and 
-which algorithms to try, and how many times to repeat each trial. The parameters we
-used for our distributed tests are 
+All benchmark entry points live under `scripts/` and use the `bench_<experiment>.sh` naming rule.
+All benchmark CSV outputs live under `scripts/Results/` and use the `<experiment>.csv` naming rule.
 
-NS=(20000 40000 80000 160000 320000)
-PROCESS_COUNTS=(1 2 4 8 16 20 40 80 160)
+### Benchmark Script Map
 
-and the parameters we used for our parallel tests are
+| Script | Purpose | Required binary | Output CSV |
+|---|---|---|---|
+| `scripts/bench_weak_scaling.sh` | Shared-memory weak scaling (`N` scales with threads). | `test.bin` from `make profile-noviz` | `scripts/Results/weak_scaling.csv` |
+| `scripts/bench_distributed_scaling.sh` | MPI distributed scaling sweep over processes and algorithm choices. | `mpi-noviz-test.bin` from `make mpi-noviz` | `scripts/Results/distributed_scaling.csv` |
 
-THREAD_COUNTS=(1 2 4 8 16)
-NS=(10000 20000 40000 80000 160000)
+### Quickstart (One Page)
 
-There are also other parameters that influence the simulation, such as theta, dt, and t_end.
-Read the report in the docs folder for further explanation, but keep them as is for our tests. Run the scripts using sbatch, i.e.
+1. Build the needed binary:
+	- Shared-memory weak profiling: `make profile-noviz`
+	- Distributed MPI sweep: `make mpi-noviz`
+2. Submit a benchmark script from repo root:
+	- `sbatch scripts/bench_weak_scaling.sh`
+	- `sbatch scripts/bench_distributed_scaling.sh`
+3. Find results in `scripts/Results/`:
+	- Canonical names are listed above.
+	- If a canonical CSV already exists, scripts auto-append a timestamp to avoid overwrite.
 
-sbatch bench_distributed_scaling.sh.
+### Distributed Benchmark Notes
 
-Both scripts expect their required binary to be compiled beforehand. For the weak scaling
-script, this is test.bin from compiling 'make parallel-prof.'. For the distributed scaling test,
-run 'make mpi-noviz'.
+`scripts/bench_distributed_scaling.sh` now uses one upfront Slurm allocation for the whole sweep and launches each experiment point with `mpirun` inside that allocation. The script logs the chosen process layout for each tier as `<nodes> nodes x <ranks per node>`, which makes the mapping explicit for multi-node runs.
 
+For the default process sweep, the largest tier is 160 ranks. With the current 16-ranks-per-node planning rule, the required allocation is 10 nodes and 160 tasks. If you override `PROCESS_COUNTS`, make sure the Slurm request covers the largest layout returned by the script helper for those counts before submitting the job.
 
-These scripts output a file in 'scripts/Results', the name of file is the same as the script,
-minus the initial bench, i.e 'weak_scaling.csv'. If said file already exists, they add the date
-and time to the name to ensure that it is unique.
+The MPI runtime setup is centralized in the script helpers. It tries `module load mpi/mpich-4.2.0-x86_64` first and falls back to `/shared/common/mpich-4.2.0` if the module is unavailable. If `mpirun` is still missing after setup, the job exits immediately with a clear error.
+
+Use `DRY_RUN=1` to validate metric parsing before a long distributed sweep:
+
+```bash
+DRY_RUN=1 sbatch scripts/bench_distributed_scaling.sh
+```
+
+In dry-run mode, the script runs one tiny sample per process tier, checks that the expected timing and energy metrics are present, and exits nonzero if any tier fails to launch or parse.
+
+The distributed CSV now includes additional metadata columns for `runs_succeeded`, `run_failures`, `parse_errors`, `build_mode`, and the chosen layout. This lets you spot partial runs without aborting the whole sweep.
+
+### Validation Checklist
+
+1. Run `DRY_RUN=1 sbatch scripts/bench_distributed_scaling.sh` and confirm every tier parses cleanly.
+2. Run a short sweep with `PROCESS_COUNTS_OVERRIDE="1 4 16 40" NS_OVERRIDE="20000 40000" RUNS_OVERRIDE=1 sbatch scripts/bench_distributed_scaling.sh`.
+3. Confirm the resulting CSV has populated `elapsed_avg` and `energy_avg` values and that any skipped runs are reflected in the metadata columns.
+4. Check the job logs for a single MPI launcher path and no nested allocation failures.
+
+### Which Script To Use
+
+| If you want to measure... | Use this script |
+|---|---|
+| How throughput scales when work per thread stays roughly constant | `scripts/bench_weak_scaling.sh` |
+| How MPI process count and algorithm choice scale in distributed runs | `scripts/bench_distributed_scaling.sh` |
 
 ## Reproducing Graphs
 
 To reproduce our graphs, use the python scripts provided in 'scripts/graphing'. Note that
-these scripts will not run on the JMU cluster, and require matplotlib. I recommend copying
-this folder and any needed test files onto your local machine. The 'demo.py' script gives
-several examples of how to create graphs.
+these scripts will not run on the JMU cluster, and require matplotlib. I recommend cloning
+this folder on your local machine, and copying and pasting any needed test files. Some test
+files are provided. The file `demo.py` contains several examples for creating graphs.
+See `weak_scaling.py` and `strong_scaling.py` for more information about the graphing functions.
+
 

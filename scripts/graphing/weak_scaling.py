@@ -2,6 +2,11 @@ import argparse
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.ticker import FixedLocator, FuncFormatter
+from colors import color_map
+
+"""
+File for graphing functions that illustrate weak scaling.
+"""
 
 
 
@@ -17,19 +22,25 @@ def weak_scaling_slice_distributed(df: pd.DataFrame, n_per_proc: int, alg: int) 
     out = out[pd.to_numeric(out["elapsed_avg"], errors="coerce").notna()]
     return out.sort_values("num_procs").reset_index(drop=True)
 
-def graph_weak_scaling_parallel(combined_df: pd.DataFrame, n_per_proc: int, in_node: bool = False, save: bool = True) -> None:
+def graph_weak_scaling_parallel(combined_df: pd.DataFrame, n_per_proc: int, dpi=300, save: bool = True) -> None:
+    """
+    Graphing function that demonstrates weak scaling for the parallel algorithm/
+    :param dpi: Level of detail in the graph.
+    :param combined_df:
+    :param n_per_proc: Number of bodies over the number of processes, held fixed.
+    :param save: Whether to save the figure.
+    :return:
+    """
     df = combined_df.copy()
-    if in_node:
-        df = df.query("num_procs <= 16")
     weak_df = weak_scaling_slice_parallel(df, n_per_proc)
     if weak_df.empty:
         return
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(dpi=dpi)
     ax.plot(
         weak_df["num_procs"].astype(int),
         pd.to_numeric(weak_df["elapsed_avg"], errors="coerce"),
         marker="o",
-        color="blue",
+        color=color_map[0],
         label=f"N/P={n_per_proc}",
     )
     ax.set_xscale("log")
@@ -49,11 +60,18 @@ def graph_weak_scaling_parallel(combined_df: pd.DataFrame, n_per_proc: int, in_n
         plt.show()
     plt.close(fig)
 
-def graph_weak_scaling_distributed(combined_df: pd.DataFrame, n_per_proc: int, in_node: bool = False, save: bool = True) -> None:
+def graph_weak_scaling_distributed(combined_df: pd.DataFrame, n_per_proc: int, dpi=300, save: bool = True) -> None:
+    """
+    Graphing function for testing weak scaling for the distributed algorithms.
+    :param dpi: Level of detail in the graph.
+    :param combined_df:
+    :param n_per_proc: Number of bodies over the number of processes, held fixed.
+    :param save: Whether to save the figure.
+    :return:
+    """
     df = combined_df.copy()
     algs = sorted(df["algChoice"].unique())
-    colors = ["blue", "red", "green", "orange", "purple", "brown", "pink"]
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(dpi=dpi)
     for i, alg in enumerate(algs):
         weak_df = weak_scaling_slice_distributed(df, n_per_proc, alg)
         if weak_df.empty:
@@ -62,7 +80,7 @@ def graph_weak_scaling_distributed(combined_df: pd.DataFrame, n_per_proc: int, i
             weak_df["num_procs"].astype(int),
             pd.to_numeric(weak_df["elapsed_avg"], errors="coerce"),
             marker="o",
-            color=colors[i % len(colors)],
+            color=color_map[i % len(color_map)],
             label=f"Alg {alg} (N/P={n_per_proc})",
         )
     ax.set_xscale("log")
@@ -99,8 +117,8 @@ if __name__ == "__main__":
 
     # Parallel weak scaling (threads, weak_scaling.csv)
     parallel_df = pd.read_csv("weak_scaling.csv")
-    graph_weak_scaling_parallel(parallel_df, n_per_proc=20000, in_node=args.in_node, save=not args.show)
+    graph_weak_scaling_parallel(parallel_df, n_per_proc=20000, save=not args.show)
 
     # Distributed weak scaling (processes, distributed_scaling.csv)
     distributed_df = pd.read_csv("distributed_scaling.csv")
-    graph_weak_scaling_distributed(distributed_df, n_per_proc=20000, in_node=args.in_node, save=not args.show)
+    graph_weak_scaling_distributed(distributed_df, n_per_proc=20000, save=not args.show)
